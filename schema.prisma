@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+  AGENT
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(CUSTOMER)
+  phone        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  orders       Order[]
+  tickets      SupportTicket[] @relation("TicketCustomer")
+  replies      TicketMessage[] @relation("TicketAuthor")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String
+  image       String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  sku         String       @unique
+  description String
+  price       Int
+  compareAt   Int?
+  inventory   Int          @default(0)
+  rating      Float        @default(0)
+  reviewCount Int          @default(0)
+  featured    Boolean      @default(false)
+  active      Boolean      @default(true)
+  images      String[]
+  attributes  Json?
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems  OrderItem[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  number        String        @unique
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  subtotal      Int
+  shipping      Int           @default(0)
+  tax           Int           @default(0)
+  total         Int
+  currency      String        @default("USD")
+  customerId    String
+  customer      User          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  email         String
+  shippingName  String
+  shippingLine1 String
+  shippingLine2 String?
+  shippingCity  String
+  shippingState String
+  shippingZip   String
+  shippingCountry String
+  notes         String?
+  items         OrderItem[]
+  events        OrderEvent[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  title     String
+  sku       String
+  quantity  Int
+  unitPrice Int
+  total     Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model OrderEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  type      String
+  message   String
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  number      String         @unique
+  subject     String
+  message     String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(NORMAL)
+  category    String
+  customerId  String
+  orderNumber String?
+  customer    User           @relation("TicketCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  messages    TicketMessage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model TicketMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  internal  Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User          @relation("TicketAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+}
